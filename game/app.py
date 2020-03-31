@@ -13,7 +13,20 @@ from pylti1p3.lineitem import LineItem
 from pylti1p3.tool_config import ToolConfJsonFile
 
 
+class ReverseProxied(object):
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        scheme = environ.get('HTTP_X_FORWARDED_PROTO')
+        if scheme:
+            environ['wsgi.url_scheme'] = scheme
+        return self.app(environ, start_response)
+
+
 app = Flask('pylti1p3-game-example', template_folder='templates', static_folder='static')
+app.wsgi_app = ReverseProxied(app.wsgi_app)
+
 config = {
     "DEBUG": True,
     "ENV": "development",
@@ -95,6 +108,7 @@ def login():
         tpl_kwargs = {
             'login_unique_id': login_unique_id,
             'same_site': app.config['SESSION_COOKIE_SAMESITE'],
+            'site_protocol': 'https' if request.is_secure else 'http',
             'page_title': PAGE_TITLE
         }
         return render_template('check_cookie.html', **tpl_kwargs)
