@@ -38,8 +38,7 @@ config = {
     "SESSION_COOKIE_NAME": "flask-session-id",
     "SESSION_COOKIE_HTTPONLY": True,
     "SESSION_COOKIE_SECURE": False,  # should be True in case of HTTPS usage (production)
-    "SESSION_COOKIE_SAMESITE": None,  # should be 'None' in case of HTTPS usage (production)
-    "APPEND_TIMEZONE" : False # Must be set to true if using Blackboard Learn
+    "SESSION_COOKIE_SAMESITE": None  # should be 'None' in case of HTTPS usage (production)
 }
 app.config.from_mapping(config)
 cache = Cache(app)
@@ -194,9 +193,7 @@ def score(launch_id, earned_score, time_spent):
         raise Forbidden("Don't have grades!")
 
     sub = message_launch.get_launch_data().get('sub')
-    timestamp = datetime.datetime.utcnow().isoformat()
-    if app.config['APPEND_TIMEZONE']:
-        timestamp += 'Z'
+    timestamp = datetime.datetime.utcnow().isoformat() + 'Z'
     earned_score = int(earned_score)
     time_spent = int(time_spent)
 
