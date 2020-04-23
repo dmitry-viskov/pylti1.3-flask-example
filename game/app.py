@@ -1,12 +1,14 @@
 import datetime
 import os
 import pprint
-import uuid
+
 from tempfile import mkdtemp
+from urllib.parse import unquote
 from flask import Flask, jsonify, request, render_template, url_for
 from flask_caching import Cache
+from flask_debugtoolbar import DebugToolbarExtension
 from werkzeug.exceptions import Forbidden
-from pylti1p3.contrib.flask import FlaskOIDCLogin, FlaskMessageLaunch, FlaskRequest
+from pylti1p3.contrib.flask import FlaskOIDCLogin, FlaskMessageLaunch, FlaskRequest, FlaskCacheDataStorage
 from pylti1p3.deep_link_resource import DeepLinkResource
 from pylti1p3.grade import Grade
 from pylti1p3.lineitem import LineItem
@@ -37,11 +39,13 @@ config = {
     "SESSION_FILE_DIR": mkdtemp(),
     "SESSION_COOKIE_NAME": "flask-session-id",
     "SESSION_COOKIE_HTTPONLY": True,
-    "SESSION_COOKIE_SECURE": False,  # should be True in case of HTTPS usage (production)
-    "SESSION_COOKIE_SAMESITE": None  # should be 'None' in case of HTTPS usage (production)
+    "SESSION_COOKIE_SECURE": False,   # should be True in case of HTTPS usage (production)
+    "SESSION_COOKIE_SAMESITE": None,  # should be 'None' in case of HTTPS usage (production)
+    "DEBUG_TB_INTERCEPT_REDIRECTS": False
 }
 app.config.from_mapping(config)
 cache = Cache(app)
+toolbar = DebugToolbarExtension(app)
 
 PAGE_TITLE = 'Game Example'
 
@@ -66,90 +70,39 @@ def get_lti_config_path():
     return os.path.join(app.root_path, '..', 'configs', 'game.json')
 
 
-@app.route('/check-cookies-allowed/', methods=['GET'])
-def check_cookies_allowed():
-    test_cookie_val = request.cookies.get('test_cookie', None)
-    request_ts = request.args.get('ts', None)
-    cookie_sent = bool(request_ts and test_cookie_val and request_ts == test_cookie_val)
-    return jsonify({'cookies_allowed': cookie_sent})
+def get_launch_data_storage():
+    return FlaskCacheDataStorage(cache)
 
 
 @app.route('/login/', methods=['GET', 'POST'])
 def login():
-    cookies_allowed = str(request.args.get('cookies_allowed', ''))
-
-    # check cookies and ask to open page in the new window in case if cookies are not allowed
-    # https://chromestatus.com/feature/5088147346030592
-    # to share GET/POST data between requests we save them into cache
-    if cookies_allowed:
-        login_unique_id = str(request.args.get('login_unique_id', ''))
-        if not login_unique_id:
-            raise Exception('Missing "login_unique_id" param')
-
-        login_data = cache.get(login_unique_id)
-        if not login_data:
-            raise Exception("Can't restore login data from cache")
-
-        tool_conf = ToolConfJsonFile(get_lti_config_path())
-        request_params_dict = {}
-        request_params_dict.update(login_data['GET'])
-        request_params_dict.update(login_data['POST'])
-
-        oidc_request = FlaskRequest(request_data=request_params_dict)
-        oidc_login = FlaskOIDCLogin(oidc_request, tool_conf)
-        target_link_uri = request_params_dict.get('target_link_uri')
-        return oidc_login.redirect(target_link_uri)
-    else:
-        login_unique_id = str(uuid.uuid4())
-        cache.set(login_unique_id, {
-            'GET': request.args.to_dict(),
-            'POST': request.form.to_dict()
-        }, 3600)
-        tpl_kwargs = {
-            'login_unique_id': login_unique_id,
-            'same_site': app.config['SESSION_COOKIE_SAMESITE'],
-            'site_protocol': 'https' if request.is_secure else 'http',
-            'page_title': PAGE_TITLE
-        }
-        return render_template('check_cookie.html', **tpl_kwargs)
-
-
-@app.route('/launch/', methods=['GET', 'POST'])
-def launch():
-    launch_unique_id = str(request.args.get('launch_id', ''))
-
-    # reload page in case if session cookie is unavailable (chrome samesite issue):
-    # https://chromestatus.com/feature/5088147346030592
-    # to share GET/POST data between requests we save them into cache
-    session_key = request.cookies.get(app.config['SESSION_COOKIE_NAME'], None)
-    if not session_key and not launch_unique_id:
-        launch_unique_id = str(uuid.uuid4())
-        cache.set(launch_unique_id, {
-            'GET': request.args.to_dict(),
-            'POST': request.form.to_dict()
-        }, 3600)
-        current_url = request.base_url
-        if '?' in current_url:
-            current_url += '&'
-        else:
-            current_url += '?'
-        current_url = current_url + 'launch_id=' + launch_unique_id
-        return '<script type="text/javascript">window.location="%s";</script>' % current_url
-
-    launch_request = FlaskRequest()
-    if request.method == "GET":
-        launch_data = cache.get(launch_unique_id)
-        if not launch_data:
-            raise Exception("Can't restore launch data from cache")
-        request_params_dict = {}
-        request_params_dict.update(launch_data['GET'])
-        request_params_dict.update(launch_data['POST'])
-        launch_request = FlaskRequest(request_data=request_params_dict)
-
     tool_conf = ToolConfJsonFile(get_lti_config_path())
-    message_launch = ExtendedFlaskMessageLaunch(launch_request, tool_conf)
+    launch_data_storage = get_launch_data_storage()
+
+    flask_request = FlaskRequest()
+    target_link_uri = flask_request.get_param('target_link_uri')
+    if not target_link_uri:
+        raise Exception('Missing "target_link_uri" param')
+
+    oidc_login = FlaskOIDCLogin(flask_request, tool_conf, launch_data_storage=launch_data_storage)
+    return oidc_login\
+        .enable_check_cookies()\
+        .redirect(target_link_uri)
+
+
+@app.route('/launch/', methods=['POST'])
+def launch():
+    tool_conf = ToolConfJsonFile(get_lti_config_path())
+    flask_request = FlaskRequest()
+    launch_data_storage = get_launch_data_storage()
+    message_launch = ExtendedFlaskMessageLaunch(flask_request, tool_conf, launch_data_storage=launch_data_storage)
     message_launch_data = message_launch.get_launch_data()
     pprint.pprint(message_launch_data)
+
+    difficulty = message_launch_data.get('https://purl.imsglobal.org/spec/lti/claim/custom', {}) \
+        .get('difficulty', None)
+    if not difficulty:
+        difficulty = request.args.get('difficulty', 'normal')
 
     tpl_kwargs = {
         'page_title': PAGE_TITLE,
@@ -157,17 +110,29 @@ def launch():
         'launch_data': message_launch.get_launch_data(),
         'launch_id': message_launch.get_launch_id(),
         'curr_user_name': message_launch_data.get('name', ''),
-        'curr_diff': message_launch_data.get('https://purl.imsglobal.org/spec/lti/claim/custom', {})
-            .get('difficulty', 'normal')
+        'curr_diff': difficulty
     }
     return render_template('game.html', **tpl_kwargs)
+
+
+@app.route('/jwks/', methods=['GET'])
+def get_jwks(request):
+    iss = request.args.get('iss')
+    if not iss:
+        return jsonify({'error': "iss was not passed"})
+    iss = unquote(iss)
+    tool_conf = ToolConfJsonFile(get_lti_config_path())
+    data = tool_conf.get_jwks(iss)
+    return jsonify(data)
 
 
 @app.route('/configure/<launch_id>/<difficulty>/', methods=['GET', 'POST'])
 def configure(launch_id, difficulty):
     tool_conf = ToolConfJsonFile(get_lti_config_path())
     flask_request = FlaskRequest()
-    message_launch = ExtendedFlaskMessageLaunch.from_cache(launch_id, flask_request, tool_conf)
+    launch_data_storage = get_launch_data_storage()
+    message_launch = ExtendedFlaskMessageLaunch.from_cache(launch_id, flask_request, tool_conf,
+                                                           launch_data_storage=launch_data_storage)
 
     if not message_launch.is_deep_link_launch():
         raise Forbidden('Must be a deep link!')
@@ -175,7 +140,7 @@ def configure(launch_id, difficulty):
     launch_url = url_for('launch', _external=True)
 
     resource = DeepLinkResource()
-    resource.set_url(launch_url) \
+    resource.set_url(launch_url + '?difficulty=' + difficulty) \
         .set_custom_params({'difficulty': difficulty}) \
         .set_title('Breakout ' + difficulty + ' mode!')
 
@@ -187,7 +152,9 @@ def configure(launch_id, difficulty):
 def score(launch_id, earned_score, time_spent):
     tool_conf = ToolConfJsonFile(get_lti_config_path())
     flask_request = FlaskRequest()
-    message_launch = ExtendedFlaskMessageLaunch.from_cache(launch_id, flask_request, tool_conf)
+    launch_data_storage = get_launch_data_storage()
+    message_launch = ExtendedFlaskMessageLaunch.from_cache(launch_id, flask_request, tool_conf,
+                                                           launch_data_storage=launch_data_storage)
 
     if not message_launch.has_ags():
         raise Forbidden("Don't have grades!")
@@ -235,7 +202,9 @@ def score(launch_id, earned_score, time_spent):
 def scoreboard(launch_id):
     tool_conf = ToolConfJsonFile(get_lti_config_path())
     flask_request = FlaskRequest()
-    message_launch = ExtendedFlaskMessageLaunch.from_cache(launch_id, flask_request, tool_conf)
+    launch_data_storage = get_launch_data_storage()
+    message_launch = ExtendedFlaskMessageLaunch.from_cache(launch_id, flask_request, tool_conf,
+                                                           launch_data_storage=launch_data_storage)
 
     if not message_launch.has_nrps():
         raise Forbidden("Don't have names and roles!")
@@ -276,4 +245,4 @@ def scoreboard(launch_id):
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=9017)
+    app.run(host='0.0.0.0', port=9001)
