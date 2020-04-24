@@ -65,6 +65,9 @@ class ExtendedFlaskMessageLaunch(FlaskMessageLaunch):
 def get_lti_config_path():
     return os.path.join(app.root_path, '..', 'configs', 'game.json')
 
+@app.route('/helloworld/', methods=['GET'])
+def hello_world():
+    return('<h1>Hello World</h1>')
 
 @app.route('/check-cookies-allowed/', methods=['GET'])
 def check_cookies_allowed():

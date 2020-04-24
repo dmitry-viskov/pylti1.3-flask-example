@@ -11,4 +11,4 @@ services:
       - ./game:/game
     working_dir: /game
     ports:
-      - "9001:9001"
+      - "9001:9017"
