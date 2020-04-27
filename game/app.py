@@ -3,7 +3,6 @@ import os
 import pprint
 
 from tempfile import mkdtemp
-from urllib.parse import unquote
 from flask import Flask, jsonify, request, render_template, url_for
 from flask_caching import Cache
 from flask_debugtoolbar import DebugToolbarExtension
@@ -13,6 +12,7 @@ from pylti1p3.deep_link_resource import DeepLinkResource
 from pylti1p3.grade import Grade
 from pylti1p3.lineitem import LineItem
 from pylti1p3.tool_config import ToolConfJsonFile
+from pylti1p3.registration import Registration
 
 
 class ReverseProxied(object):
@@ -74,6 +74,15 @@ def get_launch_data_storage():
     return FlaskCacheDataStorage(cache)
 
 
+def get_jwk_from_public_key(key_name):
+    key_path = os.path.join(app.root_path, '..', 'configs', key_name)
+    f = open(key_path, 'r')
+    key_content = f.read()
+    jwk = Registration.get_jwk(key_content)
+    f.close()
+    return jwk
+
+
 @app.route('/login/', methods=['GET', 'POST'])
 def login():
     tool_conf = ToolConfJsonFile(get_lti_config_path())
@@ -116,14 +125,13 @@ def launch():
 
 
 @app.route('/jwks/', methods=['GET'])
-def get_jwks(request):
-    iss = request.args.get('iss')
-    if not iss:
-        return jsonify({'error': "iss was not passed"})
-    iss = unquote(iss)
-    tool_conf = ToolConfJsonFile(get_lti_config_path())
-    data = tool_conf.get_jwks(iss)
-    return jsonify(data)
+def get_jwks():
+    result_keys = []
+    public_keys = ['public.key', 'public2.key']
+    for key in public_keys:
+        jwk = get_jwk_from_public_key(key)
+        result_keys.append(jwk)
+    return jsonify({'keys': result_keys})
 
 
 @app.route('/configure/<launch_id>/<difficulty>/', methods=['GET', 'POST'])
@@ -156,6 +164,9 @@ def score(launch_id, earned_score, time_spent):
     message_launch = ExtendedFlaskMessageLaunch.from_cache(launch_id, flask_request, tool_conf,
                                                            launch_data_storage=launch_data_storage)
 
+    resource_link_id = message_launch.get_launch_data() \
+        .get('https://purl.imsglobal.org/spec/lti/claim/resource_link', {}).get('id')
+
     if not message_launch.has_ags():
         raise Forbidden("Don't have grades!")
 
@@ -177,6 +188,8 @@ def score(launch_id, earned_score, time_spent):
     sc_line_item.set_tag('score') \
         .set_score_maximum(100) \
         .set_label('Score')
+    if resource_link_id:
+        sc_line_item.set_resource_id(resource_link_id)
 
     grades.put_grade(sc, sc_line_item)
 
@@ -192,6 +205,8 @@ def score(launch_id, earned_score, time_spent):
     tm_line_item.set_tag('time') \
         .set_score_maximum(999) \
         .set_label('Time Taken')
+    if resource_link_id:
+        tm_line_item.set_resource_id(resource_link_id)
 
     result = grades.put_grade(tm, tm_line_item)
 
@@ -206,6 +221,9 @@ def scoreboard(launch_id):
     message_launch = ExtendedFlaskMessageLaunch.from_cache(launch_id, flask_request, tool_conf,
                                                            launch_data_storage=launch_data_storage)
 
+    resource_link_id = message_launch.get_launch_data() \
+        .get('https://purl.imsglobal.org/spec/lti/claim/resource_link', {}).get('id')
+
     if not message_launch.has_nrps():
         raise Forbidden("Don't have names and roles!")
 
@@ -218,12 +236,18 @@ def scoreboard(launch_id):
     score_line_item.set_tag('score') \
         .set_score_maximum(100) \
         .set_label('Score')
+    if resource_link_id:
+        score_line_item.set_resource_id(resource_link_id)
+
     scores = ags.get_grades(score_line_item)
 
     time_line_item = LineItem()
     time_line_item.set_tag('time') \
         .set_score_maximum(999) \
         .set_label('Time Taken')
+    if resource_link_id:
+        time_line_item.set_resource_id(resource_link_id)
+
     times = ags.get_grades(time_line_item)
 
     members = message_launch.get_nrps().get_members()
