@@ -59,7 +59,7 @@ class ExtendedFlaskMessageLaunch(FlaskMessageLaunch):
         Because of this in case of iss == http://imsglobal.org just skip nonce validation.
 
         """
-        iss = self._get_iss()
+        iss = self.get_iss()
         deep_link_launch = self.is_deep_link_launch()
         if iss == "http://imsglobal.org" and deep_link_launch:
             return self
@@ -126,12 +126,8 @@ def launch():
 
 @app.route('/jwks/', methods=['GET'])
 def get_jwks():
-    result_keys = []
-    public_keys = ['public.key', 'public2.key']
-    for key in public_keys:
-        jwk = get_jwk_from_public_key(key)
-        result_keys.append(jwk)
-    return jsonify({'keys': result_keys})
+    tool_conf = ToolConfJsonFile(get_lti_config_path())
+    return jsonify({'keys': tool_conf.get_jwks()})
 
 
 @app.route('/configure/<launch_id>/<difficulty>/', methods=['GET', 'POST'])
