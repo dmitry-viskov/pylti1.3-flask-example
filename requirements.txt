@@ -1,4 +1,5 @@
 Flask==1.1.2
 Flask-Caching==1.8.0
+Flask-Session==0.3.2
 Flask-DebugToolbar==0.11.0
-PyLTI1p3==1.7.0
+PyLTI1p3==1.8.4
