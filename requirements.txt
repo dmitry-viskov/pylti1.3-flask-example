@@ -1,4 +1,4 @@
-cryptography==3.2.1
+cryptography==3.3.2
 Flask==1.1.2
 Flask-Caching==1.8.0
 Flask-Session==0.3.2
