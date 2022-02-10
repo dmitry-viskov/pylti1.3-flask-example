@@ -4,3 +4,5 @@ Flask-Caching==1.8.0
 Flask-Session==0.3.2
 Flask-DebugToolbar==0.11.0
 PyLTI1p3==1.9.1
+# https://stackoverflow.com/questions/67882261/modulenotfounderror-no-module-named-werkzeug-posixemulation
+Werkzeug==1.0.1
