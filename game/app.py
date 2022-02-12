@@ -7,6 +7,7 @@ from flask import Flask, jsonify, request, render_template, url_for
 from flask_caching import Cache
 from flask_debugtoolbar import DebugToolbarExtension
 from werkzeug.exceptions import Forbidden
+from werkzeug.middleware.proxy_fix import ProxyFix
 from pylti1p3.contrib.flask import FlaskOIDCLogin, FlaskMessageLaunch, FlaskRequest, FlaskCacheDataStorage
 from pylti1p3.deep_link_resource import DeepLinkResource
 from pylti1p3.grade import Grade
@@ -15,19 +16,8 @@ from pylti1p3.tool_config import ToolConfJsonFile
 from pylti1p3.registration import Registration
 
 
-class ReverseProxied(object):
-    def __init__(self, app):
-        self.app = app
-
-    def __call__(self, environ, start_response):
-        scheme = environ.get('HTTP_X_FORWARDED_PROTO')
-        if scheme:
-            environ['wsgi.url_scheme'] = scheme
-        return self.app(environ, start_response)
-
-
 app = Flask('pylti1p3-game-example', template_folder='templates', static_folder='static')
-app.wsgi_app = ReverseProxied(app.wsgi_app)
+app.wsgi_app = ProxyFix(app.wsgi_app)
 
 config = {
     "DEBUG": True,
