@@ -16,7 +16,7 @@ from pylti1p3.tool_config import ToolConfJsonFile
 from pylti1p3.registration import Registration
 
 
-app = Flask('pylti1p3-game-example', template_folder='templates', static_folder='static')
+app = Flask('pylti1p3-game-example')
 app.wsgi_app = ProxyFix(app.wsgi_app)
 
 config = {
