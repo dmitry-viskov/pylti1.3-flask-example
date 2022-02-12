@@ -7,6 +7,7 @@ from flask import Flask, jsonify, request, render_template, url_for
 from flask_caching import Cache
 from flask_debugtoolbar import DebugToolbarExtension
 from werkzeug.exceptions import Forbidden
+from werkzeug.middleware.proxy_fix import ProxyFix
 from pylti1p3.contrib.flask import FlaskOIDCLogin, FlaskMessageLaunch, FlaskRequest, FlaskCacheDataStorage
 from pylti1p3.deep_link_resource import DeepLinkResource
 from pylti1p3.grade import Grade
@@ -15,19 +16,8 @@ from pylti1p3.tool_config import ToolConfJsonFile
 from pylti1p3.registration import Registration
 
 
-class ReverseProxied(object):
-    def __init__(self, app):
-        self.app = app
-
-    def __call__(self, environ, start_response):
-        scheme = environ.get('HTTP_X_FORWARDED_PROTO')
-        if scheme:
-            environ['wsgi.url_scheme'] = scheme
-        return self.app(environ, start_response)
-
-
-app = Flask('pylti1p3-game-example', template_folder='templates', static_folder='static')
-app.wsgi_app = ReverseProxied(app.wsgi_app)
+app = Flask('pylti1p3-game-example')
+app.wsgi_app = ProxyFix(app.wsgi_app)
 
 config = {
     "DEBUG": True,
@@ -46,6 +36,9 @@ config = {
 app.config.from_mapping(config)
 cache = Cache(app)
 toolbar = DebugToolbarExtension(app)
+
+lti_config_path = os.path.join(app.root_path, '..', 'configs', 'game.json')
+tool_conf = ToolConfJsonFile(lti_config_path)
 
 PAGE_TITLE = 'Game Example'
 
@@ -66,10 +59,6 @@ class ExtendedFlaskMessageLaunch(FlaskMessageLaunch):
         return super(ExtendedFlaskMessageLaunch, self).validate_nonce()
 
 
-def get_lti_config_path():
-    return os.path.join(app.root_path, '..', 'configs', 'game.json')
-
-
 def get_launch_data_storage():
     return FlaskCacheDataStorage(cache)
 
@@ -85,7 +74,6 @@ def get_jwk_from_public_key(key_name):
 
 @app.route('/login/', methods=['GET', 'POST'])
 def login():
-    tool_conf = ToolConfJsonFile(get_lti_config_path())
     launch_data_storage = get_launch_data_storage()
 
     flask_request = FlaskRequest()
@@ -101,7 +89,6 @@ def login():
 
 @app.route('/launch/', methods=['POST'])
 def launch():
-    tool_conf = ToolConfJsonFile(get_lti_config_path())
     flask_request = FlaskRequest()
     launch_data_storage = get_launch_data_storage()
     message_launch = ExtendedFlaskMessageLaunch(flask_request, tool_conf, launch_data_storage=launch_data_storage)
@@ -126,13 +113,11 @@ def launch():
 
 @app.route('/jwks/', methods=['GET'])
 def get_jwks():
-    tool_conf = ToolConfJsonFile(get_lti_config_path())
     return jsonify({'keys': tool_conf.get_jwks()})
 
 
 @app.route('/configure/<launch_id>/<difficulty>/', methods=['GET', 'POST'])
 def configure(launch_id, difficulty):
-    tool_conf = ToolConfJsonFile(get_lti_config_path())
     flask_request = FlaskRequest()
     launch_data_storage = get_launch_data_storage()
     message_launch = ExtendedFlaskMessageLaunch.from_cache(launch_id, flask_request, tool_conf,
@@ -154,7 +139,6 @@ def configure(launch_id, difficulty):
 
 @app.route('/api/score/<launch_id>/<earned_score>/<time_spent>/', methods=['POST'])
 def score(launch_id, earned_score, time_spent):
-    tool_conf = ToolConfJsonFile(get_lti_config_path())
     flask_request = FlaskRequest()
     launch_data_storage = get_launch_data_storage()
     message_launch = ExtendedFlaskMessageLaunch.from_cache(launch_id, flask_request, tool_conf,
@@ -211,7 +195,6 @@ def score(launch_id, earned_score, time_spent):
 
 @app.route('/api/scoreboard/<launch_id>/', methods=['GET', 'POST'])
 def scoreboard(launch_id):
-    tool_conf = ToolConfJsonFile(get_lti_config_path())
     flask_request = FlaskRequest()
     launch_data_storage = get_launch_data_storage()
     message_launch = ExtendedFlaskMessageLaunch.from_cache(launch_id, flask_request, tool_conf,
