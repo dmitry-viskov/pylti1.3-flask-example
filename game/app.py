@@ -5,7 +5,6 @@ import pprint
 from tempfile import mkdtemp
 from flask import Flask, jsonify, request, render_template, url_for
 from flask_caching import Cache
-from flask_debugtoolbar import DebugToolbarExtension
 from werkzeug.exceptions import Forbidden
 from pylti1p3.contrib.flask import FlaskOIDCLogin, FlaskMessageLaunch, FlaskRequest, FlaskCacheDataStorage
 from pylti1p3.deep_link_resource import DeepLinkResource
@@ -15,7 +14,7 @@ from pylti1p3.tool_config import ToolConfJsonFile
 from pylti1p3.registration import Registration
 
 
-class ReverseProxied(object):
+class ReverseProxied:
     def __init__(self, app):
         self.app = app
 
@@ -37,7 +36,7 @@ config = {
     "SECRET_KEY": "replace-me",
     "SESSION_TYPE": "filesystem",
     "SESSION_FILE_DIR": mkdtemp(),
-    "SESSION_COOKIE_NAME": "flask-session-id",
+    "SESSION_COOKIE_NAME": "pylti1p3-flask-app-sessionid",
     "SESSION_COOKIE_HTTPONLY": True,
     "SESSION_COOKIE_SECURE": False,   # should be True in case of HTTPS usage (production)
     "SESSION_COOKIE_SAMESITE": None,  # should be 'None' in case of HTTPS usage (production)
@@ -45,7 +44,6 @@ config = {
 }
 app.config.from_mapping(config)
 cache = Cache(app)
-toolbar = DebugToolbarExtension(app)
 
 PAGE_TITLE = 'Game Example'
 
@@ -63,7 +61,7 @@ class ExtendedFlaskMessageLaunch(FlaskMessageLaunch):
         deep_link_launch = self.is_deep_link_launch()
         if iss == "http://imsglobal.org" and deep_link_launch:
             return self
-        return super(ExtendedFlaskMessageLaunch, self).validate_nonce()
+        return super().validate_nonce()
 
 
 def get_lti_config_path():
@@ -228,23 +226,29 @@ def scoreboard(launch_id):
 
     ags = message_launch.get_ags()
 
-    score_line_item = LineItem()
-    score_line_item.set_tag('score') \
-        .set_score_maximum(100) \
-        .set_label('Score')
-    if resource_link_id:
-        score_line_item.set_resource_id(resource_link_id)
+    if ags.can_create_lineitem():
+        score_line_item = LineItem()
+        score_line_item.set_tag('score') \
+            .set_score_maximum(100) \
+            .set_label('Score')
+        if resource_link_id:
+            score_line_item.set_resource_id(resource_link_id)
 
-    scores = ags.get_grades(score_line_item)
+        score_line_item = ags.find_or_create_lineitem(score_line_item)
+        scores = ags.get_grades(score_line_item)
 
-    time_line_item = LineItem()
-    time_line_item.set_tag('time') \
-        .set_score_maximum(999) \
-        .set_label('Time Taken')
-    if resource_link_id:
-        time_line_item.set_resource_id(resource_link_id)
+        time_line_item = LineItem()
+        time_line_item.set_tag('time') \
+            .set_score_maximum(999) \
+            .set_label('Time Taken')
+        if resource_link_id:
+            time_line_item.set_resource_id(resource_link_id)
 
-    times = ags.get_grades(time_line_item)
+        time_line_item = ags.find_or_create_lineitem(time_line_item)
+        times = ags.get_grades(time_line_item)
+    else:
+        scores = ags.get_grades()
+        times = None
 
     members = message_launch.get_nrps().get_members()
     scoreboard_result = []
