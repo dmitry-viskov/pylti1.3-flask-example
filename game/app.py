@@ -125,7 +125,7 @@ def launch():
 @app.route('/jwks/', methods=['GET'])
 def get_jwks():
     tool_conf = ToolConfJsonFile(get_lti_config_path())
-    return jsonify({'keys': tool_conf.get_jwks()})
+    return jsonify(tool_conf.get_jwks())
 
 
 @app.route('/configure/<launch_id>/<difficulty>/', methods=['GET', 'POST'])
