@@ -1,4 +1,4 @@
-Flask==2.2.2
-Flask-Caching==2.0.1
-Flask-Session2==1.3.1
-PyLTI1p3==2.0.0
+Flask
+Flask-Caching
+Flask-Session2
+PyLTI1p3

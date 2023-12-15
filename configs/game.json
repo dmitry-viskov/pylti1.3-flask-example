@@ -17,8 +17,8 @@
                 }
             ]
         },
-        "private_key_file": "private.key",
-        "public_key_file": "public.key",
+        "private_key_file": "jwtRS256.key",
+        "public_key_file": "jwtRS256.key.pub",
         "deployment_ids": ["py1234"]
     }],
     "https://canvas.instructure.com": [{
@@ -28,8 +28,8 @@
         "auth_token_url": "http://canvas.test/login/oauth2/token",
         "key_set_url": "http://canvas.test/api/lti/security/jwks",
         "key_set": null,
-        "private_key_file": "private.key",
-        "public_key_file": "public.key",
+        "private_key_file": "jwtRS256.key",
+        "public_key_file": "jwtRS256.key.pub",
         "deployment_ids": ["2:4dde05e8ca1973bcca9bffc13e1548820eee93a3"]
     }, {
         "client_id": "10000000000004",
@@ -37,8 +37,8 @@
         "auth_token_url": "http://canvas.test/login/oauth2/token",
         "key_set_url": "http://canvas.test/api/lti/security/jwks",
         "key_set": null,
-        "private_key_file": "private.key",
-        "public_key_file": "public.key",
+        "private_key_file": "jwtRS256.key",
+        "public_key_file": "jwtRS256.key.pub",
         "deployment_ids": ["3:4dde05e8ca1973bcca9bffc13e1548820eee93a3"]
     }],
     "ltiadvantagevalidator.imsglobal.org": [{
@@ -59,8 +59,8 @@
         "auth_token_url": "https://developer.blackboard.com/api/v1/gateway/oauth2/jwttoken",
         "key_set_url": "https://developer.blackboard.com/api/v1/management/applications/<your client id>/jwks.json",
         "key_set": null,
-        "private_key_file": "private.key",
-        "public_key_file": "public.key",
+        "private_key_file": "jwtRS256.key",
+        "public_key_file": "jwtRS256.key.pub",
         "deployment_ids": ["deployment-id"]
     }],
     "https://partners.brightspace.com": [{
@@ -71,8 +71,8 @@
         "auth_audience": "https://api.brightspace.com/auth/token",
         "key_set_url": "https://partners.brightspace.com/d2l/.well-known/jwks",
         "key_set": null,
-        "private_key_file": "private2.key",
-        "public_key_file": "public2.key",
+        "private_key_file": "jwtRS256.key",
+        "public_key_file": "jwtRS256.key.pub",
         "deployment_ids": ["deployment-id"]
     }],
     "http://moodle.test": [{
@@ -83,8 +83,8 @@
         "auth_audience": null,
         "key_set_url": "http://moodle.test/mod/lti/certs.php",
         "key_set": null,
-        "private_key_file": "private.key",
-        "public_key_file": "public.key",
+        "private_key_file": "jwtRS256.key",
+        "public_key_file": "jwtRS256.key.pub",
         "deployment_ids": ["1"]
     }]
 }
