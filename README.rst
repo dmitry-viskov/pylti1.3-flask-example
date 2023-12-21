@@ -16,7 +16,7 @@ First of all choose and configure test LTI 1.3 Platform. It may be:
 .. _instruction: https://github.com/dmitry-viskov/pylti1.3/wiki/Configure-Canvas-as-LTI-1.3-Platform
 .. _here: https://github.com/dmitry-viskov/pylti1.3/wiki/Configure-Canvas-as-LTI-1.3-Platform
 .. _Blackboard Learn: https://github.com/blackboard
-.. _Documentation: https://docs.blackboard.com/lti/tutorials/py-lti-1p3
+.. _Documentation: https://docs.anthology.com/docs/lti/tutorials/pylti13
 
 The most simple way to check example is to use ``docker`` + ``docker-compose``.
 Change the necessary configs in the ``configs/game.json`` (`here is instruction`_ how to generate your own public + private keys):
@@ -64,7 +64,7 @@ You may use virtualenv instead of docker:
 You may also use `Heroku`_ to host this sample. For more information, see this `link`_
 
 .. _Heroku: https://heroku.com
-.. _link: https://docs.blackboard.com/lti/tutorials/py-lti-1p3#using-heroku
+.. _link: https://docs.anthology.com/docs/lti/tutorials/pylti13#using-heroku
 
 Now there is game example tool you can launch into on the port 9001:
 
